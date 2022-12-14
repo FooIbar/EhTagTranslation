@@ -11,18 +11,8 @@ import base64
 import hashlib
 from bs4 import BeautifulSoup
 
-TRANSLATION_PATCH = {
-    # 'l:chinese': '汉语'
-}
-
 def removeEmojis(x):
     return ''.join(c for c in x if c <= '\uFFFF')
-
-def fixTranslation(x, y):
-    if x in TRANSLATION_PATCH:
-        return x, TRANSLATION_PATCH[x]
-    else:
-        return x, y
 
 def parseMarkdownFile(path, prefix):
     f = open(path, 'r', encoding='utf-8')
@@ -37,17 +27,7 @@ def parseMarkdownFile(path, prefix):
             y = ''.join(tds[1].strings).strip()
             y = removeEmojis(y)
             if len(x) != 0 and len(y) != 0:
-                result.append((x, y))
-
-    # Check result
-    bad = [x[0] for x in result if not re.fullmatch(r'[a-z0-9.\-\u0020]+', x[0])]
-    if bad:
-        raise ValueError('Bad tags', str(bad))
-
-    # Add prefix
-    if prefix:
-        p = prefix + ':'
-        result = [fixTranslation(p + x[0], x[1]) for x in result]
+                result.append((f'{prefix}:{x}', y))
 
     return result
 
@@ -59,28 +39,15 @@ def sha1(path):
             if not data:
                 break
             sha1.update(data)
-    return sha1.digest()
+    return sha1.hexdigest()
 
 def saveTags(path, tags):
     tags = sorted(tags)
-    with open(path, 'wb') as f:
-        # write size placeholder
-        f.write(struct.pack('>i', 0))
-        # write tags
-        for x, y in tags:
-            f.write(x.encode())
-            f.write(struct.pack('b', ord('\r')))
-            f.write(base64.b64encode(y.encode()))
-            f.write(struct.pack('b', ord('\n')))
-        # get file size
-        f.seek(0, 2)
-        size = f.tell()
-        # write tags size
-        f.seek(0, 0)
-        f.write(struct.pack('>i', size - 4))
+    with open(path, 'w') as f:
+        json.dump({x: y for x, y in tags}, f, ensure_ascii=False, indent=0)
 
     # Save sha1
-    with open(path + ".sha1", 'wb') as f:
+    with open(path + ".sha1", 'w') as f:
         f.write(sha1(path))
 
 def downloadMarkdownFiles():
@@ -120,6 +87,6 @@ if __name__ == "__main__":
         ('reclass.md', 'r')
     )
     tags = [x for f, p in files for x in parseMarkdownFile(os.path.join('Database', 'database', f), p)]
-    saveTags('tag-translations/tag-translations-zh-rCN', tags)
+    saveTags('tag-translations/tag-translations-zh-rCN.json', tags)
 
     removeMarkdownFiles()
