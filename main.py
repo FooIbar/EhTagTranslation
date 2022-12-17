@@ -14,11 +14,11 @@ from bs4 import BeautifulSoup
 def removeEmojis(x):
     return ''.join(c for c in x if c <= '\uFFFF')
 
-def parseMarkdownFile(path, prefix):
+def parseMarkdownFile(path):
     f = open(path, 'r', encoding='utf-8')
     html = markdown.markdown(f.read(), extensions=['markdown.extensions.tables'])
 
-    result = []
+    result = {}
     soup = BeautifulSoup(html, 'html.parser')
     for tr in soup.find_all('tr'):
         tds = [x for x in tr.find_all('td')]
@@ -27,7 +27,7 @@ def parseMarkdownFile(path, prefix):
             y = ''.join(tds[1].strings).strip()
             y = removeEmojis(y)
             if len(x) != 0 and len(y) != 0:
-                result.append((f'{prefix}:{x}', y))
+                result[x] = y
 
     return result
 
@@ -42,9 +42,8 @@ def sha1(path):
     return sha1.hexdigest()
 
 def saveTags(path, tags):
-    tags = sorted(tags)
     with open(path, 'w') as f:
-        json.dump({x: y for x, y in tags}, f, ensure_ascii=False, indent=0)
+        json.dump(tags, f, ensure_ascii=False, indent=0)
 
     # Save sha1
     with open(path + ".sha1", 'w') as f:
@@ -72,6 +71,7 @@ if __name__ == "__main__":
         removeMarkdownFiles()
     downloadMarkdownFiles()
 
+    tags = {}
     files = (
         ('rows.md', 'n'),
         ('artist.md', 'a'),
@@ -86,7 +86,7 @@ if __name__ == "__main__":
         ('parody.md', 'p'),
         ('reclass.md', 'r')
     )
-    tags = [x for f, p in files for x in parseMarkdownFile(os.path.join('Database', 'database', f), p)]
+    for f, p in files: tags[p] = parseMarkdownFile(os.path.join('Database', 'database', f))
     saveTags('tag-translations/tag-translations-zh-rCN.json', tags)
 
     removeMarkdownFiles()
